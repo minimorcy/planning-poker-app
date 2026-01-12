@@ -218,8 +218,11 @@ interface Vote {
 
 function Room() {
   const { roomId } = useParams<{ roomId: string }>();
-  const [searchParams] = useSearchParams();
-  const userName = searchParams.get('name') || 'Anonymous';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlName = searchParams.get('name');
+
+  const [userName, setUserName] = useState(urlName || '');
+  const [isJoined, setIsJoined] = useState(!!urlName);
 
   const [users, setUsers] = useState<User[]>([]);
   const [votes, setVotes] = useState<Map<string, Vote>>(new Map());
@@ -233,7 +236,7 @@ function Room() {
   const [showAvatarInput, setShowAvatarInput] = useState(false);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !isJoined || !userName) return;
 
     socket = io(API_URL);
 
@@ -245,7 +248,6 @@ function Room() {
       setRevealed(state.revealed);
       setCurrentStory(state.currentStory);
       setScores(state.scores);
-      // setNewScores(state.scores.join(', ')); // Disable edit for now or refactor later
     });
 
     socket.on('voteUpdate', ({ userId, voted }) => {
@@ -286,7 +288,17 @@ function Room() {
     return () => {
       socket.disconnect();
     };
-  }, [roomId, userName]);
+  }, [roomId, isJoined, userName]);
+
+  const joinRoom = () => {
+    if (!userName.trim()) {
+      alert('Por favor ingresa tu nombre');
+      return;
+    }
+    // Actualizar URL sin recargar
+    setSearchParams({ name: userName });
+    setIsJoined(true);
+  };
 
   const handleVote = (vote: ScoreOption) => {
     if (revealed) return;
@@ -357,6 +369,25 @@ function Room() {
     navigator.clipboard.writeText(link);
     alert('¡Link copiado al portapapeles!');
   };
+
+  if (!isJoined) {
+    return (
+      <div className="create-room">
+        <h1>🃏 Unirse a Sala</h1>
+        <p className="subtitle">ID: {roomId}</p>
+        <div className="form-section">
+          <input
+            type="text"
+            placeholder="Tu nombre"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
+          />
+          <button onClick={joinRoom} className="primary-btn">Entrar</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="room">
