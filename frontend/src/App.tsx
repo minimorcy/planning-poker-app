@@ -4,7 +4,8 @@ import { io, Socket } from 'socket.io-client';
 import './App.css';
 
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_URL = isLocal ? 'http://localhost:3001' : `${window.location.protocol}//${window.location.hostname}:3001`;
+// In production (not local), we use the same origin (no :3001 port) and expect Nginx to proxy /api requests
+const API_URL = isLocal ? 'http://localhost:3001' : window.location.origin;
 const PREFIX_IMG = 'img:';
 let socket: Socket;
 
@@ -143,6 +144,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Intentando login contra:', `${API_URL}/api/login`);
     try {
       const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
@@ -333,7 +335,7 @@ function Room() {
   const [votes, setVotes] = useState<Map<string, Vote>>(new Map());
   const [revealed, setRevealed] = useState(false);
   const [currentStory, setCurrentStory] = useState('');
-  const [scores, setScores] = useState<ScoreOption[]>([]);
+  const [scores, setScores] = useState<ScoreOption[]>(DEFAULT_SCORES);
   const [roomConfig, setRoomConfig] = useState({ allowAvatarChange: false, allowScoreEdit: false });
   const [selectedVote, setSelectedVote] = useState<ScoreOption | null>(null);
   const [newAvatarUrl, setNewAvatarUrl] = useState('');
@@ -348,16 +350,21 @@ function Room() {
   useEffect(() => {
     if (!roomId || !isJoined || !userName) return;
 
-    socket = io(API_URL);
+    // Use polling in production to avoid WebSocket proxy issues with Apache
+    socket = io(API_URL, {
+      transports: isLocal ? ['websocket', 'polling'] : ['polling', 'websocket']
+    });
 
     socket.emit('joinRoom', { roomId, userName });
 
     socket.on('roomState', (state) => {
-      setUsers(state.users);
-      setVotes(new Map(state.votes as [string, Vote][]));
-      setRevealed(state.revealed);
-      setCurrentStory(state.currentStory);
-      setScores(state.scores);
+      if (!state) return;
+      console.log('roomState received:', state);
+      setUsers(state.users || []);
+      setVotes(new Map(state.votes as [string, Vote][]) || new Map());
+      setRevealed(state.revealed || false);
+      setCurrentStory(state.currentStory || '');
+      setScores(state.scores && state.scores.length > 0 ? state.scores : DEFAULT_SCORES);
       if (state.config) setRoomConfig(state.config);
     });
 
@@ -366,6 +373,7 @@ function Room() {
     });
 
     socket.on('votesRevealed', ({ votes: revealedVotes }) => {
+      if (!revealedVotes || !Array.isArray(revealedVotes)) return;
       const votesMap = new Map<string, Vote>(revealedVotes.map((v: Vote) => [v.userId, v]));
       setVotes(votesMap);
       setRevealed(true);

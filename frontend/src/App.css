@@ -329,7 +329,7 @@ body {
   padding: 10px 18px;
   background: #4caf50;
   color: white;
-  border-radius: 25px;
+  border-radius: 0px;
   font-size: 1.3em;
   font-weight: bold;
   box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
