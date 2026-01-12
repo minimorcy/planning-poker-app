@@ -404,6 +404,26 @@ body {
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.card-label {
+  font-size: 0.35em;
+  font-weight: 600;
+  color: #666;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .card:hover:not(.disabled) {

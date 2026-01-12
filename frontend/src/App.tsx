@@ -13,14 +13,15 @@ interface ScoreOption {
   display: string; // url or text
   value: number;
   type: 'image' | 'text';
+  name?: string; // Optional name for tooltips/labels
 }
 
 const DEFAULT_SCORES: ScoreOption[] = [
-  { display: `${API_URL}/uploads/pokeball.png`, value: 1, type: 'image' },
-  { display: `${API_URL}/uploads/greatball.png`, value: 2, type: 'image' },
-  { display: `${API_URL}/uploads/ultraball.png`, value: 5, type: 'image' },
-  { display: `${API_URL}/uploads/masterball.png`, value: 8, type: 'image' },
-  { display: `${API_URL}/uploads/beastball.png`, value: 13, type: 'image' }, // Using Beast Ball as Enteball
+  { display: `${API_URL}/uploads/pokeball.png`, value: 1, type: 'image', name: 'Pokeball' },
+  { display: `${API_URL}/uploads/greatball.png`, value: 2, type: 'image', name: 'Superball' },
+  { display: `${API_URL}/uploads/ultraball.png`, value: 5, type: 'image', name: 'Ultraball' },
+  { display: `${API_URL}/uploads/masterball.png`, value: 8, type: 'image', name: 'Masterball' },
+  { display: `${API_URL}/uploads/beastball.png`, value: 13, type: 'image', name: 'Ente Ball' },
 ];
 
 // Componente: Editor de Puntuaciones con soporte para imágenes y pesos
@@ -656,9 +657,13 @@ function Room() {
               className={`card ${selectedVote === score ? 'selected' : ''} ${revealed ? 'disabled' : ''}`}
               onClick={() => handleVote(score)}
               disabled={revealed}
+              title={score.name || score.display}
             >
               {score.type === 'image' ? (
-                <img src={score.display} alt="score" />
+                <div className="card-content">
+                  <img src={score.display} alt={score.name || 'score'} />
+                  {score.name && <span className="card-label">{score.name}</span>}
+                </div>
               ) : (
                 score.display
               )}
