@@ -23,8 +23,8 @@ app.use('/uploads', express.static('uploads'));
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = 'uploads';
-    if (!fs.existsSync(uploadDir)){
-        fs.mkdirSync(uploadDir);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
     }
     cb(null, uploadDir)
   },
@@ -44,17 +44,17 @@ const defaultScores = ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89
 
 // REST API - Crear sala
 app.post('/api/rooms', (req, res) => {
-  const { roomName, creatorName, customScores } = req.body;
+  const { roomName, creatorName, customScores, config } = req.body;
   const roomId = Math.random().toString(36).substring(2, 9);
 
   rooms.set(roomId, {
     id: roomId,
     name: roomName,
-    scores: customScores || defaultScores,
     users: [],
     votes: new Map(),
     revealed: false,
     currentStory: '',
+    config: config || { allowAvatarChange: false, allowScoreEdit: false },
     createdAt: Date.now()
   });
 
@@ -124,7 +124,8 @@ io.on('connection', (socket) => {
       votes: Array.from(room.votes.entries()),
       revealed: room.revealed,
       currentStory: room.currentStory,
-      scores: room.scores
+      scores: room.scores,
+      config: room.config
     });
   });
 
@@ -195,6 +196,12 @@ io.on('connection', (socket) => {
         room.users = room.users.filter(u => u.id !== socket.id);
         room.votes.delete(socket.id);
         io.to(socket.roomId).emit('userLeft', { userId: socket.id });
+
+        // Clean up empty room
+        if (room.users.length === 0) {
+          rooms.delete(socket.roomId);
+          console.log(`Sala eliminada por inactividad: ${socket.roomId}`);
+        }
       }
     }
   });

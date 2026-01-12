@@ -137,6 +137,11 @@ function CreateRoom() {
     }
     return DEFAULT_SCORES;
   });
+
+  const [allowAvatarChange, setAllowAvatarChange] = useState(false);
+  const [allowScoreEdit, setAllowScoreEdit] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+
   const navigate = useNavigate();
 
   const createRoom = async () => {
@@ -154,7 +159,8 @@ function CreateRoom() {
       body: JSON.stringify({
         roomName,
         creatorName: userName,
-        customScores: customScores
+        customScores: customScores,
+        config: { allowAvatarChange, allowScoreEdit }
       })
     });
 
@@ -191,7 +197,32 @@ function CreateRoom() {
           onChange={(e) => setRoomName(e.target.value)}
         />
 
+        <div className="config-section">
+          <button
+            onClick={() => setShowConfig(!showConfig)}
+            className="config-toggle-btn"
+            title="Configuración avanzada"
+          >
+            ⚙️ Configuración de Sala {showConfig ? '▲' : '▼'}
+          </button>
 
+          <div className={`config-content ${showConfig ? 'open' : ''}`}>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={allowScoreEdit}
+                onChange={e => setAllowScoreEdit(e.target.checked)}
+              /> Permitir editar puntuaciones
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={allowAvatarChange}
+                onChange={e => setAllowAvatarChange(e.target.checked)}
+              /> Permitir cambiar avatar
+            </label>
+          </div>
+        </div>
 
         <ScoreEditor value={customScores} onChange={setCustomScores} />
 
@@ -212,8 +243,9 @@ interface User {
 
 interface Vote {
   userId: string;
-  userName: string;
-  vote: ScoreOption; // Updated to store the full object
+  userName?: string;
+  vote?: ScoreOption;
+  voted?: boolean;
 }
 
 function Room() {
@@ -229,11 +261,16 @@ function Room() {
   const [revealed, setRevealed] = useState(false);
   const [currentStory, setCurrentStory] = useState('');
   const [scores, setScores] = useState<ScoreOption[]>([]);
+  const [roomConfig, setRoomConfig] = useState({ allowAvatarChange: false, allowScoreEdit: false });
   const [selectedVote, setSelectedVote] = useState<ScoreOption | null>(null);
   const [newAvatarUrl, setNewAvatarUrl] = useState('');
   const [editingScores, setEditingScores] = useState(false);
   const [newScores, setNewScores] = useState('');
+
   const [showAvatarInput, setShowAvatarInput] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetStoryName, setResetStoryName] = useState('');
+  const [confirmReset, setConfirmReset] = useState(true);
 
   useEffect(() => {
     if (!roomId || !isJoined || !userName) return;
@@ -248,20 +285,21 @@ function Room() {
       setRevealed(state.revealed);
       setCurrentStory(state.currentStory);
       setScores(state.scores);
+      if (state.config) setRoomConfig(state.config);
     });
 
     socket.on('voteUpdate', ({ userId, voted }) => {
-      setVotes(prev => new Map(prev).set(userId, { voted }));
+      setVotes(prev => new Map(prev).set(userId, { userId, voted } as Vote));
     });
 
     socket.on('votesRevealed', ({ votes: revealedVotes }) => {
-      const votesMap = new Map(revealedVotes.map((v: Vote) => [v.userId, v]));
+      const votesMap = new Map<string, Vote>(revealedVotes.map((v: Vote) => [v.userId, v]));
       setVotes(votesMap);
       setRevealed(true);
     });
 
     socket.on('votesReset', ({ currentStory: story }) => {
-      setVotes(new Map<string, any>());
+      setVotes(new Map<string, Vote>());
       setRevealed(false);
       setSelectedVote(null);
       setCurrentStory(story);
@@ -310,9 +348,18 @@ function Room() {
     socket.emit('revealVotes', { roomId });
   };
 
-  const resetVotes = () => {
-    const story = prompt('Nombre de la nueva historia (opcional):');
-    socket.emit('resetVotes', { roomId, newStory: story || '' });
+  const requestReset = () => {
+    if (confirmReset) {
+      setResetStoryName('');
+      setShowResetModal(true);
+    } else {
+      socket.emit('resetVotes', { roomId, newStory: '' });
+    }
+  };
+
+  const traverseReset = () => {
+    socket.emit('resetVotes', { roomId, newStory: resetStoryName });
+    setShowResetModal(false);
   };
 
   const updateAvatar = () => {
@@ -404,34 +451,74 @@ function Room() {
         <button onClick={revealVotes} disabled={revealed || votes.size === 0} className="reveal-btn">
           👁️ Revelar Votos
         </button>
-        <button onClick={resetVotes} className="reset-btn">
+        <button onClick={requestReset} className="reset-btn">
           🔄 Nueva Votación
         </button>
-        <button onClick={() => setEditingScores(!editingScores)} className="edit-btn">
-          {editingScores ? '❌ Cancelar' : '⚙️ Editar Puntuaciones'}
-        </button>
-        <button onClick={() => setShowAvatarInput(!showAvatarInput)} className="avatar-btn">
-          🖼️ Cambiar Avatar
-        </button>
+        <label className="checkbox-label" title="Pedir confirmación al resetear">
+          <input
+            type="checkbox"
+            checked={confirmReset}
+            onChange={e => setConfirmReset(e.target.checked)}
+          /> Confirmar
+        </label>
+
+        {roomConfig.allowScoreEdit && (
+          <button onClick={() => setEditingScores(!editingScores)} className="edit-btn">
+            {editingScores ? '❌ Cancelar' : '⚙️ Editar Puntuaciones'}
+          </button>
+        )}
+
+        {roomConfig.allowAvatarChange && (
+          <button onClick={() => setShowAvatarInput(!showAvatarInput)} className="avatar-btn">
+            🖼️ Cambiar Avatar
+          </button>
+        )}
       </div>
 
-      {editingScores && (
-        <div className="edit-panel">
-          <p>La edición de puntuaciones en sala está deshabilitada temporalmente en esta versión. Crea una nueva sala para cambiar las puntuaciones.</p>
-        </div>
-      )}
+      {
+        editingScores && (
+          <div className="edit-panel">
+            <p>La edición de puntuaciones en sala está deshabilitada temporalmente en esta versión. Crea una nueva sala para cambiar las puntuaciones.</p>
+          </div>
+        )
+      }
 
-      {showAvatarInput && (
-        <div className="edit-panel">
-          <input
-            type="text"
-            placeholder="URL de tu avatar (https://...)"
-            value={newAvatarUrl}
-            onChange={(e) => setNewAvatarUrl(e.target.value)}
-          />
-          <button onClick={updateAvatar}>✓ Actualizar</button>
-        </div>
-      )}
+      {
+        showAvatarInput && (
+          <div className="edit-panel">
+            <input
+              type="text"
+              placeholder="URL de tu avatar (https://...)"
+              value={newAvatarUrl}
+              onChange={(e) => setNewAvatarUrl(e.target.value)}
+            />
+            <button onClick={updateAvatar}>✓ Actualizar</button>
+          </div>
+        )
+      }
+
+      {
+        showResetModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3>🔄 Nueva Votación</h3>
+              <p>¿Quieres reiniciar los votos? Puedes asignar un nombre a la nueva historia.</p>
+              <input
+                type="text"
+                placeholder="Nombre de la historia (opcional)"
+                value={resetStoryName}
+                onChange={(e) => setResetStoryName(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && traverseReset()}
+              />
+              <div className="modal-actions">
+                <button onClick={() => setShowResetModal(false)} className="secondary-btn">Cancelar</button>
+                <button onClick={traverseReset} className="primary-btn">Confirmar</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       <div className="participants">
         <h3>👥 Participantes ({users.length})</h3>
@@ -466,11 +553,13 @@ function Room() {
         </div>
       </div>
 
-      {revealed && getAverage() && (
-        <div className="average">
-          📊 Promedio: <strong>{getAverage()}</strong>
-        </div>
-      )}
+      {
+        revealed && getAverage() && (
+          <div className="average">
+            📊 Promedio: <strong>{getAverage()}</strong>
+          </div>
+        )
+      }
 
       <div className="voting-section">
         <h3>Tu voto:</h3>
@@ -491,7 +580,7 @@ function Room() {
           ))}
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 

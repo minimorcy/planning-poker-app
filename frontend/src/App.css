@@ -32,6 +32,7 @@ body {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -212,12 +213,14 @@ body {
   box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
 }
 
-.edit-btn, .avatar-btn {
+.edit-btn,
+.avatar-btn {
   background: #667eea;
   color: white;
 }
 
-.edit-btn:hover, .avatar-btn:hover {
+.edit-btn:hover,
+.avatar-btn:hover {
   background: #5568d3;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
@@ -238,6 +241,7 @@ body {
     opacity: 0;
     max-height: 0;
   }
+
   to {
     opacity: 1;
     max-height: 100px;
@@ -336,9 +340,11 @@ body {
   0% {
     transform: scale(0);
   }
+
   50% {
     transform: scale(1.1);
   }
+
   100% {
     transform: scale(1);
   }
@@ -535,10 +541,118 @@ body {
   max-width: 100px;
   max-height: 100px;
   object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  border-radius: 0;
+  /* Removed radius per user request */
+  background: white;
+  /* Ensure transparency looks good */
+  padding: 5px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .vote-revealed:has(img) {
   padding: 5px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  color: #2d3748;
+}
+
+.modal-content input {
+  width: 100%;
+  margin: 1rem 0;
+  box-sizing: border-box;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9em;
+  color: #666;
+  cursor: pointer;
+  user-select: none;
+}
+
+.config-section {
+  margin: 10px 0;
+}
+
+.config-toggle-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 0.95em;
+  width: 100%;
+  text-align: center;
+  transition: color 0.3s;
+  justify-content: center;
+}
+
+.config-toggle-btn:hover {
+  color: #667eea;
+}
+
+.config-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s;
+  opacity: 0;
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 0 15px;
+  /* Horizontal padding always present */
+}
+
+.config-content.open {
+  max-height: 200px;
+  /* Arbitrary large enough height */
+  opacity: 1;
+  padding: 15px;
+  /* Vertical padding added when open */
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #eee;
+  align-items: center;
+  /* Center options horizontally */
 }
