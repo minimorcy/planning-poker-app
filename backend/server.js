@@ -112,6 +112,7 @@ app.post('/api/rooms', (req, res) => {
         revealed: false,
         currentStory: '',
         config: config || { allowAvatarChange: false, allowScoreEdit: false },
+        scores: customScores, // Fix: Save custom scores
         history: [],
         createdAt: Date.now()
     });
