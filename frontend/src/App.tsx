@@ -345,7 +345,7 @@ function Room() {
   const [showAvatarInput, setShowAvatarInput] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetStoryName, setResetStoryName] = useState('');
-  const [confirmReset, setConfirmReset] = useState(true);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     if (!roomId || !isJoined || !userName) return;
