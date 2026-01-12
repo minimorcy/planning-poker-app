@@ -535,27 +535,70 @@ function Room() {
                         type="checkbox"
                         checked={confirmReset}
                         onChange={e => setConfirmReset(e.target.checked)}
-                    /> Confirmar
+                    /> Título tarea
                 </label>
             </div>
 
             {
                 showResetModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content">
-                            <h3>🔄 Nueva Votación</h3>
-                            <p>¿Quieres reiniciar los votos? Puedes asignar un nombre a la nueva historia.</p>
-                            <input
-                                type="text"
-                                placeholder="Nombre de la historia (opcional)"
-                                value={resetStoryName}
-                                onChange={(e) => setResetStoryName(e.target.value)}
-                                autoFocus
-                                onKeyDown={(e) => e.key === 'Enter' && traverseReset()}
-                            />
-                            <div className="modal-actions">
-                                <button onClick={() => setShowResetModal(false)} className="secondary-btn">Cancelar</button>
-                                <button onClick={traverseReset} className="primary-btn">Confirmar</button>
+                    <div className="modal-overlay" style={{ zIndex: 1200, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)' }}>
+                        <div className="modal-content" style={{
+                            background: '#242424',
+                            border: '1px solid #333',
+                            borderRadius: '16px',
+                            padding: '30px',
+                            maxWidth: '400px',
+                            width: '90%',
+                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+                        }}>
+                            <h3 style={{ marginTop: 0, color: '#fff', fontSize: '1.4em', marginBottom: '20px', textAlign: 'center' }}>🔄 Nueva Votación</h3>
+
+                            <div style={{ marginBottom: '25px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre de la historia (opcional)"
+                                    value={resetStoryName}
+                                    onChange={(e) => setResetStoryName(e.target.value)}
+                                    autoFocus
+                                    onKeyDown={(e) => e.key === 'Enter' && traverseReset()}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 15px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #444',
+                                        background: '#1a1a1a',
+                                        color: 'white',
+                                        fontSize: '1rem',
+                                        outline: 'none',
+                                        boxSizing: 'border-box',
+                                        transition: 'border-color 0.2s, box-shadow 0.2s'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#646cff';
+                                        e.target.style.boxShadow = '0 0 0 2px rgba(100, 108, 255, 0.2)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#444';
+                                        e.target.style.boxShadow = 'none';
+                                    }}
+                                />
+                            </div>
+
+                            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                <button
+                                    onClick={() => setShowResetModal(false)}
+                                    className="secondary-btn"
+                                    style={{ padding: '10px 20px', borderRadius: '8px' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={traverseReset}
+                                    className="primary-btn"
+                                    style={{ padding: '10px 20px', borderRadius: '8px' }}
+                                >
+                                    Confirmar
+                                </button>
                             </div>
                         </div>
                     </div>
