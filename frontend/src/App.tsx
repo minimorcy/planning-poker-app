@@ -355,7 +355,11 @@ function Room() {
       transports: isLocal ? ['websocket', 'polling'] : ['polling', 'websocket']
     });
 
-    socket.emit('joinRoom', { roomId, userName });
+    // Get saved avatar from localStorage or generate default
+    const savedAvatar = localStorage.getItem('userAvatar');
+    const avatarUrl = savedAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`;
+
+    socket.emit('joinRoom', { roomId, userName, avatarUrl });
 
     socket.on('roomState', (state) => {
       if (!state) return;
@@ -445,6 +449,7 @@ function Room() {
 
   const updateAvatar = () => {
     if (newAvatarUrl.trim()) {
+      localStorage.setItem('userAvatar', newAvatarUrl.trim());
       socket.emit('updateAvatar', { roomId, avatarUrl: newAvatarUrl });
       setNewAvatarUrl('');
       setShowAvatarInput(false);
