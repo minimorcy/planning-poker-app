@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route, useNavigate, useParams, useSearchParams }
 import { io, Socket } from 'socket.io-client';
 import './App.css';
 
-const API_URL = 'http://localhost:3001';
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_URL = isLocal ? 'http://localhost:3001' : `${window.location.protocol}//${window.location.hostname}:3001`;
 const PREFIX_IMG = 'img:';
 let socket: Socket;
 
@@ -26,6 +27,7 @@ function ScoreEditor({ value, onChange }: { value: ScoreOption[], onChange: (val
   const [newText, setNewText] = useState('');
   const [newValue, setNewValue] = useState<number>(0);
   const [uploading, setUploading] = useState(false);
+  const [showAddScore, setShowAddScore] = useState(false);
 
   const addTextScore = () => {
     if (newText.trim()) {
@@ -88,31 +90,43 @@ function ScoreEditor({ value, onChange }: { value: ScoreOption[], onChange: (val
         {value.length === 0 && <span style={{ color: '#999', padding: '10px' }}>Sin puntuaciones</span>}
       </div>
 
-      <div className="add-score-section" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label>Valor Interno:</label>
-          <input
-            type="number"
-            value={newValue}
-            onChange={e => setNewValue(Number(e.target.value))}
-            style={{ width: '80px', padding: '8px' }}
-          />
-        </div>
+      <div className="config-section">
+        <button
+          onClick={() => setShowAddScore(!showAddScore)}
+          className="config-toggle-btn"
+          title="Añadir nuevas opciones"
+        >
+          ➕ Añadir Nueva Puntuación {showAddScore ? '▲' : '▼'}
+        </button>
 
-        <div className="add-score-form">
-          <input
-            type="text"
-            placeholder="Texto..."
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addTextScore()}
-          />
-          <button onClick={addTextScore} className="secondary-btn" style={{ width: 'auto' }}>+ Texto</button>
+        <div className={`config-content ${showAddScore ? 'open' : ''}`}>
+          <div className="add-score-section" style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
+              <label>Valor Interno:</label>
+              <input
+                type="number"
+                value={newValue}
+                onChange={e => setNewValue(Number(e.target.value))}
+                style={{ width: '80px', padding: '8px' }}
+              />
+            </div>
 
-          <label className="file-upload-btn">
-            {uploading ? '⏳...' : '📷 Imagen'}
-            <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
-          </label>
+            <div className="add-score-form">
+              <input
+                type="text"
+                placeholder="Texto..."
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addTextScore()}
+              />
+              <button onClick={addTextScore} className="secondary-btn" style={{ width: 'auto' }}>+ Texto</button>
+
+              <label className="file-upload-btn">
+                {uploading ? '⏳...' : '📷 Imagen'}
+                <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -120,6 +134,54 @@ function ScoreEditor({ value, onChange }: { value: ScoreOption[], onChange: (val
 }
 
 
+
+// Componente: Login
+function Login({ onLogin }: { onLogin: () => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        onLogin();
+      } else {
+        setError(data.message || 'Error de login');
+      }
+    } catch (err) {
+      setError('Error de conexión');
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <form onSubmit={handleSubmit} className="login-form">
+        <h2>🔒 Acceso Restringido</h2>
+        <input
+          type="text"
+          placeholder="Usuario"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
+        {error && <p className="error-msg">{error}</p>}
+        <button type="submit">Entrar</button>
+      </form>
+    </div>
+  );
+}
 
 // Componente: Crear Sala
 function CreateRoom() {
@@ -130,7 +192,18 @@ function CreateRoom() {
     const saved = localStorage.getItem('planningPokerScoresObj');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Fix old localhost URLs if now running elsewhere
+        return parsed.map((s: ScoreOption) => {
+          if (s.type === 'image' && s.display.includes('/uploads/')) {
+            // Replace origin with current API_URL
+            const parts = s.display.split('/uploads/');
+            if (parts.length === 2) {
+              return { ...s, display: `${API_URL}/uploads/${parts[1]}` };
+            }
+          }
+          return s;
+        });
       } catch (e) {
         return DEFAULT_SCORES;
       }
@@ -585,6 +658,19 @@ function Room() {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('auth_token') === 'true';
+  });
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('auth_token', 'true');
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>

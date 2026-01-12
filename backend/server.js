@@ -10,14 +10,71 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: "*",
     methods: ["GET", "POST", "PUT"]
   }
 });
 
-app.use(cors());
+const bcrypt = require('bcryptjs');
+
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+
+// Enable CORS
+app.use(cors());
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Login endpoint
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  console.log(`Intento de login para usuario: ${username}`);
+
+  try {
+    const htpasswdPath = path.join(__dirname, 'users.htpasswd');
+    if (!fs.existsSync(htpasswdPath)) {
+      console.warn('Archivo htpasswd no encontrado en:', htpasswdPath);
+      // Fallback if file missing (dev mode only)
+      if (username === 'admin' && password === 'password') {
+        return res.json({ success: true });
+      }
+      return res.status(401).json({ success: false, message: 'Auth file missing' });
+    }
+
+    const data = fs.readFileSync(htpasswdPath, 'utf8');
+    // Handle Windows CRLF by splitting on newline then trimming each line
+    const lines = data.split('\n').map(l => l.trim()).filter(l => l);
+
+    // Exact match for username + ':' prefix
+    const userLine = lines.find(line => line.startsWith(username + ':'));
+
+    if (!userLine) {
+      console.log('Usuario no encontrado en htpasswd');
+      return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    // Extract hash carefully
+    const parts = userLine.split(':');
+    if (parts.length < 2) {
+      console.error('Formato inválido en htpasswd para usuario:', username);
+      return res.status(401).json({ success: false, message: 'Error de configuración' });
+    }
+    const hash = parts[1].trim();
+
+    // Compare
+    const isValid = bcrypt.compareSync(password, hash);
+    console.log(`Resultado validación password: ${isValid}`); // Don't log the password itself
+
+    if (isValid) {
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, message: 'Error interno' });
+  }
+});
 
 // Configuración de Multer para subida de archivos
 const storage = multer.diskStorage({
