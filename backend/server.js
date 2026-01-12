@@ -209,32 +209,16 @@ io.on('connection', (socket) => {
         const room = rooms.get(roomId);
         if (!room) return;
 
-        room.revealed = true;
-        const votes = Array.from(room.votes.entries()).map(([id, data]) => ({
-            userId: id,
-            userName: data.userName,
-            vote: data.vote
-        }));
-
-        console.log(`Votos revelados en sala ${roomId}:`, votes);
-        io.to(roomId).emit('votesRevealed', { votes });
-    });
-
-    // Resetear votación y guardar historia
-    socket.on('resetVotes', ({ roomId, newStory }) => {
-        const room = rooms.get(roomId);
-        if (!room) return;
-
-        // Calcular resultado antes de borrar si hubo votos
-        if (room.votes.size > 0 && room.revealed) {
+        // Si no se ha revelado aún, calcular resultados y guardar en historial
+        if (!room.revealed && room.votes.size > 0) {
             const numericVotes = Array.from(room.votes.values())
                 .map(v => v.vote.value)
                 .filter(v => v !== undefined && v !== null);
 
             if (numericVotes.length > 0) {
                 const avg = numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
-                const roundedAvg = Math.ceil(avg);
-                // Encontrar tarjeta resultado (concordancia con frontend)
+
+                // Encontrar tarjeta resultado
                 const sortedScores = [...(room.scores || defaultScores)].sort((a, b) => a.value - b.value);
                 const resultScore = sortedScores.find(s => s.value >= avg) || sortedScores[sortedScores.length - 1];
 
@@ -250,9 +234,26 @@ io.on('connection', (socket) => {
                     timestamp: Date.now()
                 });
 
+                console.log(`Historial actualizado en sala ${roomId}:`, room.history[room.history.length - 1]);
                 io.to(roomId).emit('historyUpdate', room.history);
             }
         }
+
+        room.revealed = true;
+        const votes = Array.from(room.votes.entries()).map(([id, data]) => ({
+            userId: id,
+            userName: data.userName,
+            vote: data.vote
+        }));
+
+        console.log(`Votos revelados en sala ${roomId}:`, votes);
+        io.to(roomId).emit('votesRevealed', { votes });
+    });
+
+    // Resetear votación
+    socket.on('resetVotes', ({ roomId, newStory }) => {
+        const room = rooms.get(roomId);
+        if (!room) return;
 
         room.votes.clear();
         room.revealed = false;

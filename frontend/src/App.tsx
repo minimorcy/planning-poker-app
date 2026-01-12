@@ -214,10 +214,6 @@ function CreateRoom() {
         return DEFAULT_SCORES;
     });
 
-    const [allowAvatarChange, setAllowAvatarChange] = useState(false);
-    const [allowScoreEdit, setAllowScoreEdit] = useState(false);
-    const [showConfig, setShowConfig] = useState(false);
-
     const navigate = useNavigate();
 
     const createRoom = async () => {
@@ -235,8 +231,7 @@ function CreateRoom() {
             body: JSON.stringify({
                 roomName,
                 creatorName: userName,
-                customScores: customScores,
-                config: { allowAvatarChange, allowScoreEdit }
+                customScores: customScores
             })
         });
 
@@ -272,33 +267,6 @@ function CreateRoom() {
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
                 />
-
-                <div className="config-section">
-                    <button
-                        onClick={() => setShowConfig(!showConfig)}
-                        className="config-toggle-btn"
-                        title="Configuración avanzada"
-                    >
-                        ⚙️ Configuración de Sala {showConfig ? '▲' : '▼'}
-                    </button>
-
-                    <div className={`config-content ${showConfig ? 'open' : ''}`}>
-                        <label className="checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={allowScoreEdit}
-                                onChange={e => setAllowScoreEdit(e.target.checked)}
-                            /> Permitir editar puntuaciones
-                        </label>
-                        <label className="checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={allowAvatarChange}
-                                onChange={e => setAllowAvatarChange(e.target.checked)}
-                            /> Permitir cambiar avatar
-                        </label>
-                    </div>
-                </div>
 
                 <ScoreEditor value={customScores} onChange={setCustomScores} />
 
@@ -346,20 +314,35 @@ function Room() {
     const [scores, setScores] = useState<ScoreOption[]>(DEFAULT_SCORES);
     const [roomConfig, setRoomConfig] = useState({ allowAvatarChange: false, allowScoreEdit: false });
     const [selectedVote, setSelectedVote] = useState<ScoreOption | null>(null);
-    const [newAvatarUrl, setNewAvatarUrl] = useState('');
-    const [editingScores, setEditingScores] = useState(false);
     const [newScores, setNewScores] = useState('');
 
-    const [showAvatarInput, setShowAvatarInput] = useState(false);
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetStoryName, setResetStoryName] = useState('');
     const [confirmReset, setConfirmReset] = useState(false);
 
     const [history, setHistory] = useState<HistoryItem[]>([]);
-    const [showHistory, setShowHistory] = useState(true);
+    const [showHistory, setShowHistory] = useState(false);
+    const [sidebarLoaded, setSidebarLoaded] = useState(false);
+
+    // Result Modal State
+    const [showResultModal, setShowResultModal] = useState(false);
+
+    useEffect(() => {
+        // Enable sidebar transition after first render
+        setTimeout(() => setSidebarLoaded(true), 100);
+    }, []);
+
+    useEffect(() => {
+        if (revealed) {
+            setShowResultModal(true);
+        } else {
+            setShowResultModal(false);
+        }
+    }, [revealed]);
 
     useEffect(() => {
         if (!roomId || !isJoined || !userName) return;
+        // ... (existing socket connection logic remains same)
 
         // Use polling in production to avoid WebSocket proxy issues with Apache
         socket = io(API_URL, {
@@ -463,15 +446,6 @@ function Room() {
         setShowResetModal(false);
     };
 
-    const updateAvatar = () => {
-        if (newAvatarUrl.trim()) {
-            localStorage.setItem('userAvatar', newAvatarUrl.trim());
-            socket.emit('updateAvatar', { roomId, avatarUrl: newAvatarUrl });
-            setNewAvatarUrl('');
-            setShowAvatarInput(false);
-        }
-    };
-
     const updateScores = async () => {
         const scoresArray = newScores.split(',').map(s => s.trim()).filter(s => s);
         await fetch(`${API_URL}/api/rooms/${roomId}/scores`, {
@@ -563,41 +537,7 @@ function Room() {
                         onChange={e => setConfirmReset(e.target.checked)}
                     /> Confirmar
                 </label>
-
-                {roomConfig.allowScoreEdit && (
-                    <button onClick={() => setEditingScores(!editingScores)} className="edit-btn">
-                        {editingScores ? '❌ Cancelar' : '⚙️ Editar Puntuaciones'}
-                    </button>
-                )}
-
-                {roomConfig.allowAvatarChange && (
-                    <button onClick={() => setShowAvatarInput(!showAvatarInput)} className="avatar-btn">
-                        🖼️ Cambiar Avatar
-                    </button>
-                )}
             </div>
-
-            {
-                editingScores && (
-                    <div className="edit-panel">
-                        <p>La edición de puntuaciones en sala está deshabilitada temporalmente en esta versión. Crea una nueva sala para cambiar las puntuaciones.</p>
-                    </div>
-                )
-            }
-
-            {
-                showAvatarInput && (
-                    <div className="edit-panel">
-                        <input
-                            type="text"
-                            placeholder="URL de tu avatar (https://...)"
-                            value={newAvatarUrl}
-                            onChange={(e) => setNewAvatarUrl(e.target.value)}
-                        />
-                        <button onClick={updateAvatar}>✓ Actualizar</button>
-                    </div>
-                )
-            }
 
             {
                 showResetModal && (
@@ -656,9 +596,167 @@ function Room() {
             </div>
 
             {
-                revealed && getAverage() && (
-                    <div className="average">
-                        📊 Promedio: <strong>{getAverage()}</strong>
+                showResultModal && revealed && (
+                    <div className="modal-overlay" style={{ zIndex: 1100, backgroundColor: 'rgba(0,0,0,0.4)' }}>
+                        <div className="modal-content" style={{
+                            textAlign: 'center',
+                            background: '#ffffff',
+                            borderRadius: '24px',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                            padding: '40px',
+                            maxWidth: '400px',
+                            width: '90%',
+                            maxHeight: '85vh',  // Prevent modal from exceeding screen height
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflowY: 'auto',  // Allow scrolling within modal if needed
+                            position: 'relative',
+                            animation: 'popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                        }}>
+                            {/* Confetti Effect */}
+                            <img
+                                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                                onLoad={(e) => {
+                                    // Hack to trigger one-off confetti when this component mounts/is revealed
+                                    const fireConfetti = () => {
+                                        // Check if confetti global exists
+                                        // @ts-ignore
+                                        if (window.confetti) {
+                                            // @ts-ignore
+                                            window.confetti({
+                                                particleCount: 150,
+                                                spread: 70,
+                                                origin: { y: 0.6 },
+                                                colors: ['#FFE400', '#FFBD00', '#E89400', '#FFCA6C', '#FDFFB8']
+                                            });
+                                        } else {
+                                            // Load script if not present
+                                            const script = document.createElement('script');
+                                            script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+                                            script.onload = () => {
+                                                // @ts-ignore
+                                                window.confetti({
+                                                    particleCount: 150,
+                                                    spread: 70,
+                                                    origin: { y: 0.6 }
+                                                });
+                                            };
+                                            document.body.appendChild(script);
+                                        }
+                                    };
+                                    fireConfetti();
+                                }}
+                                style={{ display: 'none' }}
+                            />
+
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: '15px',
+                                    right: '15px',
+                                    cursor: 'pointer',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    background: '#f0f0f0',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#666',
+                                    transition: 'background 0.2s',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    zIndex: 10
+                                }}
+                                onClick={() => setShowResultModal(false)}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.background = '#e0e0e0';
+                                    e.currentTarget.style.color = '#333';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.background = '#f0f0f0';
+                                    e.currentTarget.style.color = '#666';
+                                }}
+                            >✕</div>
+
+                            <h2 style={{
+                                marginTop: 0,
+                                color: '#333',
+                                fontSize: '2em',
+                                marginBottom: '10px'
+                            }}>
+                                🎉 Resultado Final
+                            </h2>
+
+                            <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                                <div style={{ transform: 'scale(1.2)' }}>
+                                    {getAverage()}
+                                </div>
+
+                                <div style={{
+                                    width: '100%',
+                                    marginTop: '15px',
+                                    borderTop: '1px solid #eee',
+                                    paddingTop: '15px'
+                                }}>
+                                    <h4 style={{ margin: '0 0 10px 0', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Votos</h4>
+                                    <div style={{
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        gap: '8px',
+                                        justifyContent: 'center',
+                                        maxHeight: '200px', // Increased slightly, but modal max-height protects screen
+                                        overflowY: 'auto',
+                                        padding: '5px'
+                                    }}>
+                                        {users.map(user => {
+                                            const v = votes.get(user.id);
+                                            // Only show users who voted
+                                            if (!v) return null;
+                                            return (
+                                                <div key={user.id} style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    background: '#f5f5f7',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '20px',
+                                                    border: '1px solid #e1e1e1',
+                                                    fontSize: '0.85em'
+                                                }}>
+                                                    <img src={user.avatar} alt={user.name} style={{ width: '20px', height: '20px', borderRadius: '50%' }} />
+                                                    <span style={{ fontWeight: 500, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+                                                    <span style={{ fontWeight: 'bold', color: '#646cff', marginLeft: '2px', display: 'flex', alignItems: 'center' }}>
+                                                        {v.vote.type === 'image' ? (
+                                                            <img src={v.vote.display} alt="vote" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                                        ) : (
+                                                            v.vote.display
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setShowResultModal(false)}
+                                className="primary-btn"
+                                style={{
+                                    maxWidth: '200px',
+                                    margin: '0 auto',
+                                    background: 'linear-gradient(45deg, #646cff, #9089fc)',
+                                    border: 'none',
+                                    boxShadow: '0 8px 16px rgba(100, 108, 255, 0.3)',
+                                    borderRadius: '12px',
+                                    fontWeight: 'bold',
+                                    padding: '12px 30px'
+                                }}
+                            >
+                                ¡Genial!
+                            </button>
+                        </div>
                     </div>
                 )
             }
@@ -677,7 +775,17 @@ function Room() {
                             {score.type === 'image' ? (
                                 <div className="card-content">
                                     <img src={score.display} alt={score.name || 'score'} />
-                                    {score.name && <span className="card-label">{score.name}</span>}
+                                    {score.name && (
+                                        <span
+                                            className="card-label"
+                                            style={{
+                                                color: selectedVote === score ? '#ffffff' : 'inherit',
+                                                fontWeight: selectedVote === score ? 'bold' : 'normal'
+                                            }}
+                                        >
+                                            {score.name}
+                                        </span>
+                                    )}
                                 </div>
                             ) : (
                                 score.display
@@ -687,58 +795,219 @@ function Room() {
                 </div>
             </div>
 
-            {/* History Section */}
-            <div className="history-section" style={{ marginTop: '30px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-                <h3 onClick={() => setShowHistory(!showHistory)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    📜 Historial de Votaciones {showHistory ? '▼' : '▶'}
-                </h3>
+            {/* History Toggle Button */}
+            <button
+                onClick={() => setShowHistory(!showHistory)}
+                style={{
+                    position: 'fixed',
+                    bottom: '30px',
+                    right: '30px',
+                    zIndex: 1000,
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: '#646cff',
+                    color: 'white',
+                    fontSize: '24px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s ease'
+                }}
+                title="Ver Historial"
+            >
+                📜
+            </button>
 
-                {showHistory && (
-                    <div className="history-list" style={{ display: 'grid', gap: '10px', marginTop: '15px' }}>
-                        {history.length === 0 ? (
-                            <p style={{ color: '#999', fontStyle: 'italic' }}>Aún no hay votaciones registradas.</p>
-                        ) : (
-                            history.slice().reverse().map((item, idx) => (
-                                <div key={idx} className="history-item" style={{
-                                    background: 'rgba(255,255,255,0.05)',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    border: '1px solid rgba(255,255,255,0.1)'
-                                }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{item.story || `Votación #${history.length - idx}`}</span>
-                                        <span style={{ fontSize: '0.9em', color: '#aaa' }}>{new Date(item.timestamp).toLocaleTimeString()}</span>
-                                    </div>
+            {/* History Sidebar */}
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                right: 0, // Always anchored right
+                width: '320px',
+                height: '100%',
+                background: '#1a1a1a',
+                boxShadow: '-5px 0 15px rgba(0,0,0,0.5)',
+                // Use transform for performance and cleaner state handling
+                transform: showHistory ? 'translateX(0)' : 'translateX(100%)',
+                // Only animate transform. Ensure no transition on load (sidebarLoaded logic can stay or be simplified if transform works better)
+                transition: sidebarLoaded ? 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)' : 'none',
+                zIndex: 999,
+                padding: '20px',
+                overflowY: 'auto',
+                boxSizing: 'border-box',
+                borderLeft: '1px solid #333',
+                // visibility hidden when closed ensures no interaction/focus issues
+                visibility: showHistory ? 'visible' : 'hidden',
+                // Delay visibility transition to match transform to prevent "disappearing" before sliding out
+                transitionProperty: 'transform, visibility',
+                transitionDuration: '0.3s',
+                transitionDelay: showHistory ? '0s' : '0s'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, color: '#999' }}>📜 Historial</h3>
+                    <button
+                        onClick={() => setShowHistory(false)}
+                        style={{ background: 'transparent', border: 'none', fontSize: '1.5em', cursor: 'pointer', color: '#999' }}
+                    >
+                        ✕
+                    </button>
+                </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                        <span style={{ fontSize: '0.9em', color: '#ccc' }}>Media: <strong>{item.average}</strong></span>
+                <div className="history-list" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    {history.length === 0 ? (
+                        <p style={{ color: '#999', fontStyle: 'italic', textAlign: 'center', marginTop: '50px' }}>Aún no hay votaciones registradas.</p>
+                    ) : (
+                        history.slice().reverse().map((item, idx) => (
+                            <div key={idx} className="history-item" style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                padding: '15px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '4px', color: '#ffffff' }}>
+                                        {item.story || `Votación #${history.length - idx}`}
+                                    </span>
+                                    <span style={{ fontSize: '0.8em', color: '#aaa' }}>
+                                        {new Date(item.timestamp).toLocaleTimeString()}
+                                    </span>
+                                </div>
 
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '5px',
-                                            background: 'rgba(0,0,0,0.2)',
-                                            padding: '5px 10px',
-                                            borderRadius: '20px'
-                                        }}>
-                                            {item.resultScore.type === 'image' ? (
-                                                <img src={item.resultScore.display} alt="result" style={{ width: '30px', height: '30px', objectFit: 'contain' }} />
-                                            ) : (
-                                                <span style={{ fontWeight: 'bold', fontSize: '1.2em' }}>{item.resultScore.display}</span>
-                                            )}
-                                        </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: '8px' }}>
+                                    <span style={{ fontSize: '0.9em', color: '#ccc' }}>Media: <strong>{item.average}</strong></span>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '0.8em', color: '#888' }}>Resultado:</span>
+                                        {item.resultScore.type === 'image' ? (
+                                            <img src={item.resultScore.display} alt="result" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+                                        ) : (
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.1em', color: '#fff' }}>{item.resultScore.display}</span>
+                                        )}
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
-                )}
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>
 
         </div >
+    );
+}
+
+// Componente: Ajustes Globales (Botón flotante)
+function GlobalSettings() {
+    const [isOpen, setIsOpen] = useState(false);
+    const [showAvatarInput, setShowAvatarInput] = useState(false);
+    const [newAvatarUrl, setNewAvatarUrl] = useState('');
+    const location = window.location; // Usamos window.location para detectar si estamos en una sala por la URL
+
+    const [currentAvatar, setCurrentAvatar] = useState(() => {
+        return localStorage.getItem('userAvatar') || '';
+    });
+
+    const toggleOpen = () => setIsOpen(!isOpen);
+
+    const handleUpdateAvatar = () => {
+        if (newAvatarUrl.trim()) {
+            localStorage.setItem('userAvatar', newAvatarUrl.trim());
+            setCurrentAvatar(newAvatarUrl.trim());
+
+            // Si estamos en una sala, intentar emitir evento via socket global si existe
+            // Nota: 'socket' es una variable global en este archivo.
+            // Una forma más robusta sería usar un Context, pero para este MVP:
+            if (socket && socket.connected) {
+                // Extraer roomId de la URL si es posible
+                const pathParts = location.pathname.split('/');
+                const roomIndex = pathParts.indexOf('room');
+                if (roomIndex !== -1 && pathParts[roomIndex + 1]) {
+                    const roomId = pathParts[roomIndex + 1];
+                    socket.emit('updateAvatar', { roomId, avatarUrl: newAvatarUrl.trim() });
+                }
+            }
+
+            setNewAvatarUrl('');
+            setShowAvatarInput(false);
+            setIsOpen(false);
+
+            // Forzar recarga si estamos en create room para actualizar la vista previa si la hubiera
+            // O simplemente confiar en que el usuario verá el cambio en la siguiente acción.
+        }
+    };
+
+    return (
+        <div className="global-settings" style={{ position: 'fixed', bottom: '30px', left: '30px', zIndex: 1000 }}>
+            <button
+                onClick={toggleOpen}
+                style={{
+                    background: '#fff',
+                    border: '1px solid #ccc',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                    fontSize: '1.2em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}
+                title="Ajustes"
+            >
+                ⚙️
+            </button>
+
+            {isOpen && (
+                <div className="settings-dropdown" style={{
+                    position: 'absolute',
+                    bottom: '60px',
+                    left: '0',
+                    background: '#fff',
+                    border: '1px solid #eee',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    width: '250px',
+                    color: '#333'
+                }}>
+                    <h4 style={{ margin: '0 0 10px 0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Ajustes</h4>
+
+                    <div className="setting-item">
+                        <p style={{ fontSize: '0.9em', marginBottom: '5px' }}>Tu Avatar:</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                            <img
+                                src={currentAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'}
+                                alt="Current Avatar"
+                                style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #ddd' }}
+                            />
+                            <button
+                                onClick={() => setShowAvatarInput(!showAvatarInput)}
+                                style={{ fontSize: '0.8em', padding: '4px 8px' }}
+                            >
+                                Cambiar
+                            </button>
+                        </div>
+
+                        {showAvatarInput && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="URL de imagen..."
+                                    value={newAvatarUrl}
+                                    onChange={e => setNewAvatarUrl(e.target.value)}
+                                    style={{ width: '100%', padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                />
+                                <button onClick={handleUpdateAvatar} style={{ background: '#4CAF50', color: 'white', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer' }}>Guardar</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -758,6 +1027,7 @@ function App() {
 
     return (
         <BrowserRouter>
+            <GlobalSettings />
             <Routes>
                 <Route path="/" element={<CreateRoom />} />
                 <Route path="/room/:roomId" element={<Room />} />
