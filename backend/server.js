@@ -91,9 +91,6 @@ const storage = multer.diskStorage({
     }
 });
 
-    }
-});
-
 // Filtro de archivos
 const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {

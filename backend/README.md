@@ -57,6 +57,11 @@ pm2 startup
 
 - `PORT`: Puerto del servidor (por defecto: 3001)
 
+## Seguridad de Subidas
+- **Rate Limit**: 5 imágenes por minuto por IP.
+- **Tamaño Máximo**: 2MB por imagen.
+- **Tipo**: Solo imágenes (validacion de mimetype).
+
 ## Estructura
 
 - `server.js`: Servidor principal con Express y Socket.IO

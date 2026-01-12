@@ -10,14 +10,24 @@ Aplicación de Planning Poker vitaminada para equipos ágiles. Ahora con soporte
 - **⚖️ Puntuaciones con Peso**: Asigna valores numéricos a tus cartas (sean texto o imágenes) para calcular medias precisas.
 - **💾 Persistencia**: Tu configuración de puntuaciones se guarda automáticamente en tu navegador.
 - **🔄 Tiempo Real**: Verás quién entra, quién vota y los resultados al instante (WebSockets).
+- **📜 Historial de Votación**: Historial accesible en barra lateral (toggle) que registra cada ronda.
+- **⚙️ Configuración Global**: Cambia tu avatar en cualquier momento desde el menú de ajustes.
+- **🎉 Resultados Visuales**: Popup de resultados con confeti y detalle de votos con scroll inteligente.
+- **🛡️ Seguridad Mejorada**: Protección contra spam de subidas (Rate limiting).
 - **📱 Responsive**: Funciona perfecto en móvil y escritorio.
 - **🔗 Compartible**: Copia el link de la sala y pásalo a tu equipo.
 
 ![Pantalla de Inicio](docs/screenshots/landing.png)
 *Pantalla de configuración con las nuevas Pokeballs*
 
-![Sala de Votación](docs/screenshots/room.png)
+![Sala de Votación](docs/screenshots/room1.png)
 *Sala de votación mostrando cartas y participantes*
+
+![Sala de Votación](docs/screenshots/room2.png)
+*Sala de votación mostrando cuando finaliza una votación*
+
+![Sala de Votación](docs/screenshots/room3.png)
+*Sala de votación mostrando el historial de votaciones*
 
 ---
 
