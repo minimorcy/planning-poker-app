@@ -13,6 +13,12 @@ Aplicación de Planning Poker vitaminada para equipos ágiles. Ahora con soporte
 - **📱 Responsive**: Funciona perfecto en móvil y escritorio.
 - **🔗 Compartible**: Copia el link de la sala y pásalo a tu equipo.
 
+![Pantalla de Inicio](docs/screenshots/landing.png)
+*Pantalla de configuración con las nuevas Pokeballs*
+
+![Sala de Votación](docs/screenshots/room.png)
+*Sala de votación mostrando cartas y participantes*
+
 ---
 
 ## 🛠️ Guía de Instalación y Puesta en Marcha
