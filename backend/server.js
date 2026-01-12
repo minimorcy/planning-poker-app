@@ -91,7 +91,40 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+    }
+});
+
+// Filtro de archivos
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Solo se permiten imágenes'), false);
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 2 * 1024 * 1024 // 2MB max
+    },
+    fileFilter: fileFilter
+});
+
+// Rate Limiting simple en memoria
+const uploadLimits = new Map();
+const LIMIT_WINDOW = 60 * 1000; // 1 minuto
+const MAX_UPLOADS = 5; // 5 subidas por IP
+
+// Limpieza periódica del rate limiter
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of uploadLimits.entries()) {
+        if (now - data.firstUpload > LIMIT_WINDOW) {
+            uploadLimits.delete(ip);
+        }
+    }
+}, LIMIT_WINDOW);
 
 // Almacenamiento en memoria (puedes cambiar a Redis/MongoDB)
 const rooms = new Map();
@@ -121,13 +154,45 @@ app.post('/api/rooms', (req, res) => {
     res.json({ roomId, room: rooms.get(roomId) });
 });
 
-// REST API - Subir imagen
-app.post('/api/upload', upload.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No se subió ninguna imagen' });
+// REST API - Subir imagen con Rate Limiting y manejo de errores
+app.post('/api/upload', (req, res) => {
+    const ip = req.ip;
+    const now = Date.now();
+
+    // Rate Limit Check
+    const userLimit = uploadLimits.get(ip) || { count: 0, firstUpload: now };
+
+    if (now - userLimit.firstUpload > LIMIT_WINDOW) {
+        // Reset window
+        userLimit.count = 0;
+        userLimit.firstUpload = now;
     }
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.json({ url: imageUrl });
+
+    if (userLimit.count >= MAX_UPLOADS) {
+        return res.status(429).json({ error: 'Demasiadas subidas. Intenta de nuevo en un minuto.' });
+    }
+
+    upload.single('image')(req, res, (err) => {
+        // Incrementar contador solo si se intenta subir
+        userLimit.count++;
+        uploadLimits.set(ip, userLimit);
+
+        if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ error: 'El archivo es demasiado grande (Max 2MB)' });
+            }
+            return res.status(400).json({ error: err.message });
+        } else if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No se subió ninguna imagen' });
+        }
+
+        const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+        res.json({ url: imageUrl });
+    });
 });
 
 // REST API - Obtener sala
