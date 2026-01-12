@@ -191,12 +191,7 @@ function CreateRoom() {
           onChange={(e) => setRoomName(e.target.value)}
         />
 
-        <input
-          type="text"
-          placeholder="Nombre de la sala"
-          value={roomName}
-          onChange={(e) => setRoomName(e.target.value)}
-        />
+
 
         <ScoreEditor value={customScores} onChange={setCustomScores} />
 
